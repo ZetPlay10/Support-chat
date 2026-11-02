@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: supportchat-db
+    environment:
+      POSTGRES_DB: supportchat
+      POSTGRES_USER: supportchat
+      POSTGRES_PASSWORD: supportchat
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
