@@ -20,3 +20,7 @@ docker compose up -d          # baza de date
 cd backend && ./mvnw spring-boot:run
 cd frontend && npm run dev     # http://localhost:5173
 ```
+
+## Documentație
+Diagramele (arhitectură, cazuri de utilizare, ER, clase, stări, secvențe) sunt în
+[docs/diagrame.md](docs/diagrame.md), iar exportul PNG în [docs/img/](docs/img/).
