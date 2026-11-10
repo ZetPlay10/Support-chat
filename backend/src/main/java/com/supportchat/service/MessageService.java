@@ -2,6 +2,7 @@ package com.supportchat.service;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ public class MessageService {
 		this.conversationService = conversationService;
 	}
 
+	@PreAuthorize("isAuthenticated()")
 	public List<MessageDto> history(Long conversationId, UserPrincipal user) {
 		ConversationService.checkAccess(conversationService.find(conversationId), user);
 		return messages.findByConversationIdOrderBySentAtAsc(conversationId).stream()
@@ -39,6 +41,7 @@ public class MessageService {
 
 	// Folosit acum de REST; mai tarziu si de controllerul WebSocket
 	@Transactional
+	@PreAuthorize("hasAnyRole('USER', 'AGENT')") // adminul doar citeste
 	public MessageDto send(Long conversationId, UserPrincipal user, String content) {
 		Conversation c = conversationService.find(conversationId);
 		// adminul poate citi, dar nu scrie in conversatiile altora
@@ -53,6 +56,7 @@ public class MessageService {
 	}
 
 	@Transactional
+	@PreAuthorize("hasAnyRole('USER', 'AGENT')")
 	public int markAsRead(Long conversationId, UserPrincipal user) {
 		Conversation c = conversationService.find(conversationId);
 		if (!c.hasParticipant(user.getId())) {

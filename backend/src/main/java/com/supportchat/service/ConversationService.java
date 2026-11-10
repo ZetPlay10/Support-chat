@@ -3,6 +3,7 @@ package com.supportchat.service;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +18,8 @@ import com.supportchat.repository.ConversationRepository;
 import com.supportchat.repository.UserRepository;
 import com.supportchat.security.UserPrincipal;
 
+// Rolul e verificat a doua oara aici (@PreAuthorize), indiferent daca apelul vine din REST sau WebSocket;
+// apartenenta la conversatie o verifica checkAccess, pentru ca depinde de datele din baza
 // Service-urile intorc DTO-uri: cu open-in-view=false, entitatile LAZY nu mai pot fi citite in controller
 @Service
 @Transactional(readOnly = true)
@@ -31,6 +34,7 @@ public class ConversationService {
 	}
 
 	@Transactional
+	@PreAuthorize("hasRole('USER')") // doar clientii deschid conversatii
 	public ConversationDto create(UserPrincipal user, String subject) {
 		// getReferenceById nu face SELECT: avem nevoie doar de cheia straina
 		Conversation c = new Conversation(subject.trim(), users.getReferenceById(user.getId()));
@@ -38,6 +42,7 @@ public class ConversationService {
 	}
 
 	// Clientul isi vede conversatiile deschise, agentul pe cele preluate, adminul pe toate
+	@PreAuthorize("isAuthenticated()")
 	public List<ConversationDto> myConversations(UserPrincipal user) {
 		List<Conversation> result = switch (user.getRole()) {
 			case USER -> conversations.findByClientIdOrderByCreatedAtDesc(user.getId());
@@ -47,12 +52,14 @@ public class ConversationService {
 		return result.stream().map(ConversationDto::from).toList();
 	}
 
+	@PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
 	public List<ConversationDto> waitingQueue() {
 		return conversations.findByStatusOrderByCreatedAtAsc(ConversationStatus.WAITING).stream()
 				.map(ConversationDto::from)
 				.toList();
 	}
 
+	@PreAuthorize("isAuthenticated()")
 	public ConversationDto get(Long id, UserPrincipal user) {
 		Conversation c = find(id);
 		// agentii pot vedea si conversatiile din coada, inainte sa le preia
@@ -64,6 +71,7 @@ public class ConversationService {
 	}
 
 	@Transactional
+	@PreAuthorize("hasRole('AGENT')")
 	public ConversationDto assign(Long id, UserPrincipal agent) {
 		find(id); // 404 daca nu exista
 		if (conversations.assignIfWaiting(id, users.getReferenceById(agent.getId())) == 0) {
@@ -73,6 +81,7 @@ public class ConversationService {
 	}
 
 	@Transactional
+	@PreAuthorize("isAuthenticated()")
 	public ConversationDto close(Long id, UserPrincipal user) {
 		Conversation c = find(id);
 		checkAccess(c, user);
