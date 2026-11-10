@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -28,6 +29,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import tools.jackson.databind.json.JsonMapper;
 
 @Configuration
+@EnableMethodSecurity // activeaza @PreAuthorize pe service-uri
 public class SecurityConfig {
 
 	@Bean
@@ -41,6 +43,7 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/error").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/conversations").hasRole("USER")
 						.requestMatchers("/api/conversations/queue").hasAnyRole("AGENT", "ADMIN")
 						.requestMatchers("/api/conversations/*/assign").hasRole("AGENT")
 						.anyRequest().authenticated())

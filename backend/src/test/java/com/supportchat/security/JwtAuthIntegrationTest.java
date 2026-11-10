@@ -118,4 +118,60 @@ class JwtAuthIntegrationTest {
 				.andExpect(jsonPath("$.errors.email").value("Email invalid"))
 				.andExpect(jsonPath("$.errors.password").exists());
 	}
+
+	String registerAndLogin(String username) throws Exception {
+		mvc.perform(post("/api/auth/register")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"username":"%s","email":"%s@example.com",
+								 "password":"parola1234","displayName":"Test"}""".formatted(username, username)))
+				.andExpect(status().isCreated());
+		return login(username, "parola1234");
+	}
+
+	@Test
+	void agentulNuPoateDeschideConversatii() throws Exception {
+		String token = login("agent", "agent123");
+		mvc.perform(post("/api/conversations").header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"subject\":\"Test\"}"))
+				.andExpect(status().isForbidden());
+	}
+
+	// URL-ul /messages e permis oricui e autentificat; il opreste @PreAuthorize din MessageService
+	@Test
+	void adminulNuScrieInConversatiaAltcuiva() throws Exception {
+		String client = registerAndLogin("client_msg");
+		String body = mvc.perform(post("/api/conversations").header("Authorization", "Bearer " + client)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"subject\":\"Nu merge login-ul\"}"))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		Integer id = JsonPath.read(body, "$.id");
+
+		String admin = login("admin", "admin123");
+		mvc.perform(get("/api/conversations/" + id + "/messages").header("Authorization", "Bearer " + admin))
+				.andExpect(status().isOk());
+		mvc.perform(post("/api/conversations/" + id + "/messages").header("Authorization", "Bearer " + admin)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"content\":\"Salut\"}"))
+				.andExpect(status().isForbidden())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Acces interzis"));
+	}
+
+	@Test
+	void altClientNuVedeConversatia() throws Exception {
+		String owner = registerAndLogin("client_a");
+		String body = mvc.perform(post("/api/conversations").header("Authorization", "Bearer " + owner)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"subject\":\"Privat\"}"))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		Integer id = JsonPath.read(body, "$.id");
+
+		String other = registerAndLogin("client_b");
+		mvc.perform(get("/api/conversations/" + id + "/messages").header("Authorization", "Bearer " + other))
+				.andExpect(status().isForbidden());
+	}
 }
