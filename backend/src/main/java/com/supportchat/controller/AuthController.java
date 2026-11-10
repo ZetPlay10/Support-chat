@@ -1,13 +1,10 @@
 package com.supportchat.controller;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -60,14 +57,5 @@ public class AuthController {
 	@GetMapping("/me")
 	public UserDto me(@AuthenticationPrincipal UserPrincipal user) {
 		return auth.me(user.getId());
-	}
-
-	// Utilizator inexistent sau parola gresita: acelasi raspuns, ca sa nu aflam ce conturi exista
-	@ExceptionHandler(AuthenticationException.class)
-	@ResponseStatus(HttpStatus.UNAUTHORIZED)
-	public ProblemDetail loginFailed() {
-		ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Username sau parola gresita");
-		pd.setTitle("Autentificare esuata");
-		return pd;
 	}
 }

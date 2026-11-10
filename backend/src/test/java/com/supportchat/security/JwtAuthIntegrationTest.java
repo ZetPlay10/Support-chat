@@ -2,6 +2,8 @@ package com.supportchat.security;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -54,7 +56,12 @@ class JwtAuthIntegrationTest {
 
 	@Test
 	void faraTokenDa401() throws Exception {
-		mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
+		mvc.perform(get("/api/auth/me"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(header().string("WWW-Authenticate", "Bearer"))
+				.andExpect(jsonPath("$.title").value("Neautentificat"))
+				.andExpect(jsonPath("$.instance").value("/api/auth/me"));
 	}
 
 	@Test
@@ -65,7 +72,8 @@ class JwtAuthIntegrationTest {
 		char c = token.charAt(sig);
 		String tampered = token.substring(0, sig) + (c == 'A' ? 'B' : 'A') + token.substring(sig + 1);
 		mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + tampered))
-				.andExpect(status().isUnauthorized());
+				.andExpect(status().isUnauthorized())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
 	}
 
 	@Test
@@ -85,6 +93,29 @@ class JwtAuthIntegrationTest {
 				.andExpect(status().isCreated());
 		String token = login("client_test", "parola1234");
 		mvc.perform(get("/api/conversations/queue").header("Authorization", "Bearer " + token))
-				.andExpect(status().isForbidden());
+				.andExpect(status().isForbidden())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.title").value("Acces interzis"));
+	}
+
+	@Test
+	void conversatieInexistentaDa404ProblemDetail() throws Exception {
+		String token = login("agent", "agent123");
+		mvc.perform(get("/api/conversations/999999").header("Authorization", "Bearer " + token))
+				.andExpect(status().isNotFound())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.detail").value("Conversatia 999999 nu exista"));
+	}
+
+	@Test
+	void validareaIntoarceEroriPeCampuri() throws Exception {
+		mvc.perform(post("/api/auth/register")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"username\":\"x\",\"email\":\"nu-e-email\",\"password\":\"scurt\",\"displayName\":\"X\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.errors.username").exists())
+				.andExpect(jsonPath("$.errors.email").value("Email invalid"))
+				.andExpect(jsonPath("$.errors.password").exists());
 	}
 }

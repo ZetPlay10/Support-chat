@@ -25,11 +25,14 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
+import tools.jackson.databind.json.JsonMapper;
+
 @Configuration
 public class SecurityConfig {
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http, ProblemDetailSecurityHandler errors)
+			throws Exception {
 		http
 				// API stateless: fara sesiune si fara cookie-uri, deci CSRF nu se aplica
 				// (token-ul pleaca explicit in header-ul Authorization, nu automat de la browser)
@@ -43,8 +46,19 @@ public class SecurityConfig {
 						.anyRequest().authenticated())
 				// Authorization: Bearer <token> -> semnatura + "exp" + "iss" verificate -> UserPrincipal
 				.oauth2ResourceServer(rs -> rs
-						.jwt(jwt -> jwt.jwtAuthenticationConverter(new JwtUserPrincipalConverter())));
+						.jwt(jwt -> jwt.jwtAuthenticationConverter(new JwtUserPrincipalConverter()))
+						.authenticationEntryPoint(errors) // 401: token invalid / expirat
+						.accessDeniedHandler(errors)) // 403
+				// 401 cand lipseste token-ul, 403 cand rolul nu ajunge, ambele ca ProblemDetail
+				.exceptionHandling(ex -> ex
+						.authenticationEntryPoint(errors)
+						.accessDeniedHandler(errors));
 		return http.build();
+	}
+
+	@Bean
+	ProblemDetailSecurityHandler problemDetailSecurityHandler(JsonMapper jsonMapper) {
+		return new ProblemDetailSecurityHandler(jsonMapper);
 	}
 
 	@Bean
